@@ -10,9 +10,12 @@ var slider, colorScale;
 
 d3.queue()
   .defer(d3.json, "countries.geo.json")
+  .defer(d3.csv, "FAOSTAT_data_4-12-2017.csv")
   .await(drawMap);
 
-function drawMap(error, countries){
+function drawMap(error, countries, emissions){
+  if(error)
+    return error;
   svgGroup.append("g")
             .selectAll("path")
             .data(countries.features)
@@ -20,7 +23,8 @@ function drawMap(error, countries){
             .attr("class", "country")
             .attr("d", path)
             .on("click", function(d){
-              console.log(d);
+              console.log(d.properties.name);
+              console.log(emissions.filter(function(e){return e.Area.includes(d.properties.name);}));
               });
 
   svg.call(d3.zoom()
