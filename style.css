@@ -5,19 +5,22 @@ body {
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden;
+    background: black;
 }
 
 .mapSvg {
     position: absolute;
+    background: black;
 }
 
-.countries :hover {
-    stroke: #000;
+.country:hover {
+    fill: #3B9AD9;
     stroke-width: 1.5px;
 }
 
-.countries {
-    stroke: #aaa;
+.country {
+    fill: #374459;
+    stroke: #EAE1D4;
     stroke-width: 1px;
     stroke-linejoin: round;
     stroke-linecap: round;

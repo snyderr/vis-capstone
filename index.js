@@ -14,12 +14,14 @@ d3.queue()
 
 function drawMap(error, countries){
   svgGroup.append("g")
-            .attr("class", "country")
             .selectAll("path")
             .data(countries.features)
             .enter().append("path")
+            .attr("class", "country")
             .attr("d", path)
-            .attr("fill", "black");
+            .on("click", function(d){
+              console.log(d);
+              });
 
   svg.call(d3.zoom()
                .scaleExtent([1 / 2, 500])
