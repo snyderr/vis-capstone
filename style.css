@@ -8,9 +8,15 @@ body {
     background: black;
 }
 
+.pieSVG{
+    position:absolute;
+    right: 20px;
+    bottom: 5px;
+}
+
 .mapSvg {
     position: absolute;
-    background: black;
+    background: transparent;
 }
 
 .country:hover {
@@ -24,4 +30,16 @@ body {
     stroke-width: 1px;
     stroke-linejoin: round;
     stroke-linecap: round;
+}
+.tooltip {
+    position: absolute;
+    text-align: left;
+    width: auto;
+    height: 30px;
+    padding: 8px;
+    font: 11px sans-serif;
+    background: #ffffff;
+    border: solid 1px #0000ff;
+    border-radius: 8px;
+    pointer-events: none;
 }
