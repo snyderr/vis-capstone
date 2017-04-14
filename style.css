@@ -13,6 +13,11 @@ body {
     right: 20px;
     bottom: 5px;
 }
+.barSVG{
+    position:absolute;
+    right: 20px;
+    top: 5px;
+}
 
 .mapSvg {
     position: absolute;
@@ -42,4 +47,29 @@ body {
     border: solid 1px #0000ff;
     border-radius: 8px;
     pointer-events: none;
+}
+.bar {
+  fill: steelblue;
+}
+
+.bar:hover {
+  fill: brown;
+}
+
+.axis {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #FFF;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+text{
+    fill: white;
 }
