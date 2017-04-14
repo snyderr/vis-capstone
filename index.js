@@ -31,6 +31,9 @@ var tooltip = holder.append('div').attr('class', 'tooltip').style('display', 'no
 var timeSliderContainer = holder.append("div").attr("class", "timeSliderContainer");
 var sliderInput = timeSliderContainer.append("div").attr("id", "slider");
 var selectedYears = [1996, 2004];
+var selectedCountries = [];
+var selectedEmissionTypes = [];
+var selectedSectors = [];
 noUiSlider.create(sliderInput.node(), {
   start: selectedYears,
   tooltips: [wNumb({decimals: 0}), wNumb({decimals: 0})],
@@ -45,9 +48,10 @@ noUiSlider.create(sliderInput.node(), {
 sliderInput.node().noUiSlider.on('update', function (values, handle) {
   selectedYears[0] = +values[0];
   selectedYears[1] = +values[1];
-  // updateMap();
-  // updateBarChart();
-  // updatePieChart();
+  if (dataLoaded) {
+    updateBarChart();
+    updatePieCountry();
+  }
 
 });
 var svgGroup = svg.append("g");
@@ -56,8 +60,6 @@ var height = parseInt(svg.style('height'));
 var projection = d3.geoEquirectangular().scale(300).center([20, 0]).translate([width / 2, height / 2]);
 var path = d3.geoPath().projection(projection);
 var slider, colorScale;
-var selectedYear = 1990;
-var selectedCountry;
 
 //Pie chart
 width = 320;
@@ -119,20 +121,25 @@ function initializeSelectors(countryContinentLookup, emissions) {
         label: name, value: b.Item, selected: true
       });
       a.push(name);
+      selectedSectors.push(b.Item);
     }
     return a;
   }, []);
 
   $('#sectorSelector').multiselect('dataprovider', optgroups);
-}
 
+  selectedCountries = allCountries;
+  selectedEmissionTypes = allEmissionTypes;
+}
+var dataLoaded = false;
+var globalEmissions = [];
 function drawMap(error, countries, emissions, countryContinentLookup) {
   if (error) {
     return error;
   }
-
+  globalEmissions = emissions;
   initializeSelectors(countryContinentLookup, emissions);
-
+  dataLoaded = true;
   svgGroup.append("g")
           .selectAll("path")
           .data(countries.features)
@@ -145,17 +152,20 @@ function drawMap(error, countries, emissions, countryContinentLookup) {
             console.log(emissions.filter(function (e) {
               return e.Area.includes(d.properties.name);
             }));
-            selectedCountry = d.properties.name;
-            updatePieCountry(emissions, d.properties.name);
-            updateBarChart(emissions, d.properties.name);
+            var selectedCountry = d.properties.name;
+            selectedCountries = [];
+            selectedCountries.push(selectedCountry);
+
+            updatePieCountry();
+            updateBarChart();
           });
 
   svg.call(d3.zoom()
              .scaleExtent([1 / 2, 500])
              .on("zoom", zoomed));
 
-  drawPieChart(emissions);
-  drawBarChart(emissions);
+  drawPieChart();
+  drawBarChart();
 }
 
 function updateMap() {
@@ -167,9 +177,11 @@ function zoomed() {
 }
 
 var replayFunction;
-function drawBarChart(emissions) {
-  var barData = emissions.filter(function (d) {
-    return d.Year > selectedYears[0] && d.Year < selectedYears[1] && d.Element == "Emissions (CO2eq)";
+function drawBarChart() {
+  var barData = globalEmissions.filter(function (d) {
+    return selectedCountries.some(function (name) {
+        return d.Area.includes(name);
+      }) && d.Year > selectedYears[0] && d.Year < selectedYears[1];
   }).reduce(function (acc, val) {
     var name = val.Item.split(" ")[0].replace(/,/g, "");
     if (acc[name]) {
@@ -227,7 +239,7 @@ function drawBarChart(emissions) {
         .style("fill", "white")
         .text("Total Emissions (gigagrams)");
 
-  replayFunction = function(data) {
+  replayFunction = function (data) {
     var slices = [];
     for (var i = 0; i < data.length; i++) {
       slices.push(data.slice(0, i + 1));
@@ -282,7 +294,14 @@ function drawBarChart(emissions) {
                     .attr("width", x.bandwidth())
                     .style("fill-opacity", "1")
                     .on("click", function (d) {
-                      updatePieSector(emissions, d.sector);
+                      if(!selectedSectors.includes(d.sector)){
+                        selectedSectors = [];
+                        selectedSectors.push(d.sector);
+                        $('#sectorSelector').multiselect("deselectAll", false).multiselect("refresh");
+                        $('#sectorSelector').multiselect('select', [d.sector]);
+                      }
+
+                      updatePieSector(globalEmissions, d.sector);
                     });
 
     enter.on('mouseover', function (d) {
@@ -320,9 +339,11 @@ function drawBarChart(emissions) {
   replayFunction(dataSet);
 }
 
-function updateBarChart(emissions, name) {
-  var barData = emissions.filter(function (d) {
-    return d.Year > selectedYears[0] && d.Year < selectedYears[1] && d.Element == "Emissions (CO2eq)" && d.Area == name;
+function updateBarChart() {
+  var barData = globalEmissions.filter(function (d) {
+    return d.Year > selectedYears[0] && d.Year < selectedYears[1] && selectedCountries.some(function (name) {
+        return d.Area.includes(name)
+      });
   }).reduce(function (acc, val) {
     var name = val.Item.split(" ")[0].replace(/,/g, "");
     if (acc[name]) {
@@ -345,9 +366,9 @@ function updateBarChart(emissions, name) {
   replayFunction(dataSet);
 }
 
-function drawPieChart(emissions) {
-  var pieData = emissions.filter(function (d) {
-    return d.Year == selectedYear && d.Element.includes("Emissions (CO2eq) from")
+function drawPieChart() {
+  var pieData = globalEmissions.filter(function (d) {
+    return d.Year >= selectedYears[0] && d.Year <= selectedYears[1] && d.Element.includes("Emissions (CO2eq) from")
   }).reduce(function (acc, val) {
     if (acc[val.Element]) {
       acc[val.Element] += +val.Value;
@@ -459,9 +480,15 @@ function drawPieChart(emissions) {
         .style("fill", "white");
 }
 
-function updatePieCountry(emissions, name) {
-  var pieData = emissions.filter(function (d) {
-    return d.Area.includes(name) && d.Year >= selectedYears[0] && d.Year <= selectedYears[1] && d.Element.includes("Emissions (CO2eq) from")
+function updatePieCountry() {
+  var pieData = globalEmissions.filter(function (d) {
+    return selectedSectors.some(function (sector) {
+        return d.Item.includes(sector)
+      }) && selectedCountries.some(function (name) {
+        return d.Area.includes(name)
+      }) && selectedEmissionTypes.some(function(type){
+        return d.Element.includes(type)
+      }) && d.Year >= selectedYears[0] && d.Year <= selectedYears[1];
   }).reduce(function (acc, val) {
     if (acc[val.Element]) {
       acc[val.Element] += +val.Value
@@ -483,7 +510,6 @@ function updatePieCountry(emissions, name) {
     pieSVG.transition().duration(300).attr("display", "block");
   }
 
-  var value = this.value;
   pie.value(function (d) {
     return d.count;
   });
@@ -491,9 +517,15 @@ function updatePieCountry(emissions, name) {
   piePath.merge(newPie).transition().duration(500).attr("d", arc);
 }
 
-function updatePieSector(emissions, sector) {
-  var pieData = emissions.filter(function (d) {
-    return d.Item.includes(sector) && d.Area.includes(name) && d.Year >= selectedYears[0] && d.Year <= selectedYears[1] && d.Element.includes("Emissions (CO2eq) from");
+function updatePieSector() {
+  var pieData = globalEmissions.filter(function (d) {
+    return selectedSectors.some(function (sector) {
+        return d.Item.includes(sector)
+      }) && selectedCountries.some(function (name) {
+        return d.Area.includes(name)
+      }) && selectedEmissionTypes.some(function(type){
+        return d.Element.includes(type)
+      }) && d.Year >= selectedYears[0] && d.Year <= selectedYears[1] ;
   }).reduce(function (acc, val) {
     if (acc[val.Element]) {
       acc[val.Element] += +val.Value

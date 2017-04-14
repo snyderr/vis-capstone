@@ -1,30 +1,61 @@
-$(document).ready(function() {
+$(document).ready(function () {
   $('#countrySelector').multiselect({
     enableClickableOptGroups: true,
     enableCollapsibleOptGroups: true,
     enableFiltering: true,
     includeSelectAllOption: true,
-    onChange: function(element, checked) {
+    onChange: function (element, checked) {
+
       if (checked === true) {
         //action taken here if true
-        console.log(element.val());
+        selectedCountries.push(element.val);
       }
       else if (checked === false) {
-        if (true) {
-          //action taken here
-          //confirm('Do you wish to deselect the element?')
-        }
-        else {
-          $("#countrySelector").multiselect('select', element.val()); //deselect
-        }
+        selectedCountries.remove(element.val);
+      }
+
+      if (dataLoaded) {
+        updateBarChart();
+        updatePieCountry();
       }
     }
   });
   $('#emissionTypeSelector').multiselect({
-    includeSelectAllOption: true
+    includeSelectAllOption: true,
+    onChange: function (element, checked) {
+      if (checked === true) {
+        //action taken here if true
+        console.log(element.val());
+        selectedEmissionTypes.push(element.val);
+      }
+      else if (checked === false) {
+        selectedEmissionTypes.remove(element.val);
+      }
+
+      if (dataLoaded) {
+        updateBarChart();
+        updatePieCountry();
+      }
+    }
+
   });
   $('#sectorSelector').multiselect({
-    includeSelectAllOption: true
+    includeSelectAllOption: true,
+    onChange: function (element, checked) {
+      if (checked === true) {
+        //action taken here if true
+        console.log(element.val());
+        selectedSectors.push(element.value);
+      }
+      else if (checked === false) {
+        selectedSectors.remove(element.value);
+      }
+
+      if (dataLoaded) {
+        updateBarChart();
+        updatePieCountry();
+      }
+    }
   });
 
 });
