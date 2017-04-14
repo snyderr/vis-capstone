@@ -30,9 +30,10 @@ var tooltip = holder.append('div').attr('class', 'tooltip').style('display', 'no
 
 var timeSliderContainer = holder.append("div").attr("class", "timeSliderContainer");
 var sliderInput = timeSliderContainer.append("div").attr("id", "slider");
+var selectedYears = [1996, 2004];
 noUiSlider.create(sliderInput.node(), {
-  start: [1996, 2004],
-  tooltips: [ wNumb({ decimals: 0 }), wNumb({ decimals: 0 }) ],
+  start: selectedYears,
+  tooltips: [wNumb({decimals: 0}), wNumb({decimals: 0})],
   connect: [false, true, false],
   step: 1,
   range: {
@@ -42,7 +43,12 @@ noUiSlider.create(sliderInput.node(), {
 })
 ;
 sliderInput.node().noUiSlider.on('update', function (values, handle) {
-  console.log(values[handle]);
+  selectedYears[0] = +values[0];
+  selectedYears[1] = +values[1];
+  // updateMap();
+  // updateBarChart();
+  // updatePieChart();
+
 });
 var svgGroup = svg.append("g");
 var width = parseInt(svg.style('width'));
@@ -134,12 +140,14 @@ function drawMap(error, countries, emissions, countryContinentLookup) {
           .attr("class", "country")
           .attr("d", path)
           .on("click", function (d) {
-            console.log(d.properties.name);
+            $('#countrySelector').multiselect("deselectAll", false).multiselect("refresh");
+            $('#countrySelector').multiselect('select', [d.properties.name]);
             console.log(emissions.filter(function (e) {
               return e.Area.includes(d.properties.name);
             }));
             selectedCountry = d.properties.name;
             updatePieCountry(emissions, d.properties.name);
+            updateBarChart(emissions, d.properties.name);
           });
 
   svg.call(d3.zoom()
@@ -150,13 +158,18 @@ function drawMap(error, countries, emissions, countryContinentLookup) {
   drawBarChart(emissions);
 }
 
+function updateMap() {
+
+}
+
 function zoomed() {
   svgGroup.attr("transform", d3.event.transform);
 }
 
+var replayFunction;
 function drawBarChart(emissions) {
   var barData = emissions.filter(function (d) {
-    return d.Year == selectedYear && d.Element == "Emissions (CO2eq)";
+    return d.Year > selectedYears[0] && d.Year < selectedYears[1] && d.Element == "Emissions (CO2eq)";
   }).reduce(function (acc, val) {
     var name = val.Item.split(" ")[0].replace(/,/g, "");
     if (acc[name]) {
@@ -214,7 +227,7 @@ function drawBarChart(emissions) {
         .style("fill", "white")
         .text("Total Emissions (gigagrams)");
 
-  function replay(data) {
+  replayFunction = function(data) {
     var slices = [];
     for (var i = 0; i < data.length; i++) {
       slices.push(data.slice(0, i + 1));
@@ -256,7 +269,6 @@ function drawBarChart(emissions) {
         .duration(300)
         .attr("y", y(0))
         .attr("height", height - y(0))
-        .style('fill-opacity', 1e-6)
         .remove();
 
     // data that needs DOM = enter() (a set/selection, not an event!)
@@ -268,9 +280,28 @@ function drawBarChart(emissions) {
                       return x(d.sector);
                     })
                     .attr("width", x.bandwidth())
+                    .style("fill-opacity", "1")
                     .on("click", function (d) {
                       updatePieSector(emissions, d.sector);
                     });
+
+    enter.on('mouseover', function (d) {
+      tooltip.transition()
+             .duration(300)
+             .style('display', 'block');
+    });
+    enter.on('mousemove', function (d) {
+      tooltip.select('.label').html(d.sector);
+      tooltip.select('.count').html(d.total.toLocaleString() + " gigagrams");
+      tooltip.style('display', 'block');
+      tooltip.style("left", (d3.event.x) + 10 + "px")
+             .style("top", (d3.event.y) + 10 + "px");
+    });
+    enter.on('mouseout', function () {
+      tooltip.transition()
+             .duration(300)
+             .style('display', 'none');
+    });
 
     // the "UPDATE" set:
     bars.merge(enter).transition().duration(300).attr("x", function (d) {
@@ -283,9 +314,35 @@ function drawBarChart(emissions) {
         .attr("height", function (d) {
           return height - y(d.total);
         }); // flip the height, because y's domain is bottom up, but barSVG renders top down
+
   }
 
-  replay(dataSet);
+  replayFunction(dataSet);
+}
+
+function updateBarChart(emissions, name) {
+  var barData = emissions.filter(function (d) {
+    return d.Year > selectedYears[0] && d.Year < selectedYears[1] && d.Element == "Emissions (CO2eq)" && d.Area == name;
+  }).reduce(function (acc, val) {
+    var name = val.Item.split(" ")[0].replace(/,/g, "");
+    if (acc[name]) {
+      acc[name] += +val.Value;
+    } else {
+      if (name != "Forest") {
+        acc[name] = +val.Value;
+      }
+    }
+    return acc;
+  }, {});
+  var dataSet = [];
+  Object.keys(barData).forEach(function (d) {
+    dataSet.push({
+      "sector": d,
+      "total": barData[d]
+    })
+  });
+  dataSet["columns"] = ["sector", "total"];
+  replayFunction(dataSet);
 }
 
 function drawPieChart(emissions) {
@@ -404,7 +461,7 @@ function drawPieChart(emissions) {
 
 function updatePieCountry(emissions, name) {
   var pieData = emissions.filter(function (d) {
-    return d.Area.includes(name) && d.Year == selectedYear && d.Element.includes("Emissions (CO2eq) from")
+    return d.Area.includes(name) && d.Year >= selectedYears[0] && d.Year <= selectedYears[1] && d.Element.includes("Emissions (CO2eq) from")
   }).reduce(function (acc, val) {
     if (acc[val.Element]) {
       acc[val.Element] += +val.Value
@@ -436,7 +493,7 @@ function updatePieCountry(emissions, name) {
 
 function updatePieSector(emissions, sector) {
   var pieData = emissions.filter(function (d) {
-    return d.Item.includes(sector) && d.Area.includes(name) && d.Year == selectedYear && d.Element.includes("Emissions (CO2eq) from");
+    return d.Item.includes(sector) && d.Area.includes(name) && d.Year >= selectedYears[0] && d.Year <= selectedYears[1] && d.Element.includes("Emissions (CO2eq) from");
   }).reduce(function (acc, val) {
     if (acc[val.Element]) {
       acc[val.Element] += +val.Value
